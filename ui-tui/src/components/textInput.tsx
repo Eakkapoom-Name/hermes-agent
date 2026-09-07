@@ -279,13 +279,8 @@ export function shouldPreserveCtrlJNewline(env: MinimalEnv = process.env): boole
     return true
   }
 
-  // GNOME Terminal and other VTE terminals report TERM=xterm-256color, so
-  // they previously returned false here and Ctrl+J submitted instead of
-  // inserting a newline (#51545).
-  if (env.VTE_VERSION) {
-    return true
-  }
-
+  // Terminals that identify themselves only through TERM and set no
+  // dedicated env var, so they had no fingerprint here.
   const term = (env.TERM ?? '').toLowerCase()
   if (term.includes('alacritty') || term.startsWith('foot') || term === 'xterm-kitty' || term === 'xterm-ghostty') {
     return true

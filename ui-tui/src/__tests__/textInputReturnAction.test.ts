@@ -91,37 +91,10 @@ describe('shouldInsertNewlineOnReturn', () => {
       process.env = prev
     }
   })
-
-  it('accepts a bare LF as a newline on a VTE terminal (#51545)', async () => {
-    const prev = { ...process.env }
-
-    for (const k of PLAIN_TERMINAL_ENV) {
-      delete process.env[k]
-    }
-
-    process.env.TERM = 'xterm-256color'
-    process.env.TERM_PROGRAM = ''
-    process.env.VTE_VERSION = '7600'
-
-    try {
-      const { shouldInsertNewlineOnReturn } = await importTextInput('linux')
-
-      expect(shouldInsertNewlineOnReturn(key(), '\n')).toBe(true)
-      expect(shouldInsertNewlineOnReturn(key(), '\r')).toBe(false)
-    } finally {
-      process.env = prev
-    }
-  })
 })
 
 describe('shouldPreserveCtrlJNewline', () => {
   const plainLinuxEnv = { TERM: 'xterm-256color' }
-
-  it('preserves Ctrl+J on GNOME Terminal and other VTE terminals', async () => {
-    const { shouldPreserveCtrlJNewline } = await importTextInput('linux')
-
-    expect(shouldPreserveCtrlJNewline({ ...plainLinuxEnv, VTE_VERSION: '7600' })).toBe(true)
-  })
 
   it('preserves Ctrl+J on alacritty, foot, kitty and ghostty', async () => {
     const { shouldPreserveCtrlJNewline } = await importTextInput('linux')
