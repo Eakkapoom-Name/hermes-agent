@@ -279,8 +279,9 @@ export function shouldPreserveCtrlJNewline(env: MinimalEnv = process.env): boole
     return true
   }
 
-  // Linux local terminals: GNOME Terminal (VTE), xterm, alacritty, foot
-  // previously returned false for TERM=xterm-256color, breaking Ctrl+J
+  // GNOME Terminal and other VTE terminals report TERM=xterm-256color, so
+  // they previously returned false here and Ctrl+J submitted instead of
+  // inserting a newline (#51545).
   if (env.VTE_VERSION) {
     return true
   }
