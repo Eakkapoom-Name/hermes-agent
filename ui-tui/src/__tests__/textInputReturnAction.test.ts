@@ -14,6 +14,19 @@ afterEach(() => {
   vi.resetModules()
 })
 
+// Terminal fingerprints that make Hermes treat bare LF as a newline. Cleared
+// so a case can assert the no-fingerprint baseline.
+const PLAIN_TERMINAL_ENV = [
+  'SSH_CONNECTION',
+  'SSH_CLIENT',
+  'SSH_TTY',
+  'WT_SESSION',
+  'GHOSTTY_RESOURCES_DIR',
+  'GHOSTTY_BIN_DIR',
+  'WSL_DISTRO_NAME',
+  'VTE_VERSION'
+]
+
 const key = (overrides: Record<string, unknown> = {}) =>
   ({ ctrl: false, meta: false, return: true, shift: false, super: false, ...overrides }) as any
 
@@ -49,16 +62,7 @@ describe('shouldInsertNewlineOnReturn', () => {
   it('keeps plain Enter as submit on a plain non-macOS terminal', async () => {
     const prev = { ...process.env }
 
-    for (const k of [
-      'SSH_CONNECTION',
-      'SSH_CLIENT',
-      'SSH_TTY',
-      'WT_SESSION',
-      'GHOSTTY_RESOURCES_DIR',
-      'GHOSTTY_BIN_DIR',
-      'WSL_DISTRO_NAME',
-      'VTE_VERSION'
-    ]) {
+    for (const k of PLAIN_TERMINAL_ENV) {
       delete process.env[k]
     }
 
@@ -86,5 +90,50 @@ describe('shouldInsertNewlineOnReturn', () => {
     } finally {
       process.env = prev
     }
+  })
+
+  it('accepts a bare LF as a newline on a VTE terminal (#51545)', async () => {
+    const prev = { ...process.env }
+
+    for (const k of PLAIN_TERMINAL_ENV) {
+      delete process.env[k]
+    }
+
+    process.env.TERM = 'xterm-256color'
+    process.env.TERM_PROGRAM = ''
+    process.env.VTE_VERSION = '7600'
+
+    try {
+      const { shouldInsertNewlineOnReturn } = await importTextInput('linux')
+
+      expect(shouldInsertNewlineOnReturn(key(), '\n')).toBe(true)
+      expect(shouldInsertNewlineOnReturn(key(), '\r')).toBe(false)
+    } finally {
+      process.env = prev
+    }
+  })
+})
+
+describe('shouldPreserveCtrlJNewline', () => {
+  const plainLinuxEnv = { TERM: 'xterm-256color' }
+
+  it('preserves Ctrl+J on GNOME Terminal and other VTE terminals', async () => {
+    const { shouldPreserveCtrlJNewline } = await importTextInput('linux')
+
+    expect(shouldPreserveCtrlJNewline({ ...plainLinuxEnv, VTE_VERSION: '7600' })).toBe(true)
+  })
+
+  it('preserves Ctrl+J on alacritty, foot, kitty and ghostty', async () => {
+    const { shouldPreserveCtrlJNewline } = await importTextInput('linux')
+
+    for (const TERM of ['alacritty', 'foot', 'foot-extra', 'xterm-kitty', 'xterm-ghostty']) {
+      expect(shouldPreserveCtrlJNewline({ TERM })).toBe(true)
+    }
+  })
+
+  it('leaves Ctrl+J alone on a plain terminal with no fingerprint', async () => {
+    const { shouldPreserveCtrlJNewline } = await importTextInput('linux')
+
+    expect(shouldPreserveCtrlJNewline(plainLinuxEnv)).toBe(false)
   })
 })
